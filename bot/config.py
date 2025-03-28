@@ -14,4 +14,11 @@ def load_config():
     if not token:
         raise ValueError("TELEGRAM_TOKEN must be set in environment variables")
 
-    return {"token": token}
+    admin_list = os.getenv("ADMINS")
+    if not admin_list:
+        admin_list = []
+    else:
+        # list of numberic IDs of admin accounts
+        admin_list = [int(x) for x in admin_list.split(",")]
+
+    return {"token": token, "admin_list": admin_list}

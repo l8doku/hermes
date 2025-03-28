@@ -26,21 +26,6 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
-
-
-
-TOKEN = "YOUR_BOT_TOKEN_HERE"
-GROUP_RULES = """
-📖 Group Rules:
-1. Be respectful to everyone
-2. Use Japanese when possible
-3. No spam or self-promotion
-4. Questions are welcome!
-
-がんばってください！(Do your best!)
-"""
-
-
 def welcome_new_member(update: Update, context):
     """Welcome new users and send rules"""
     for new_member in update.message.new_chat_members:
@@ -123,15 +108,21 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def show_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows which chats the bot is in"""
-    user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
-    group_ids = ", ".join(str(gid) for gid in context.bot_data.setdefault("group_ids", set()))
-    channel_ids = ", ".join(str(cid) for cid in context.bot_data.setdefault("channel_ids", set()))
-    text = (
-        f"@{context.bot.username} is currently in a conversation with the user IDs {user_ids}."
-        f" Moreover it is a member of the groups with IDs {group_ids} "
-        f"and administrator in the channels with IDs {channel_ids}."
-    )
-    await update.effective_message.reply_text(text)
+
+    user_id = update.effective_user.id
+
+    if user_id in config["admin_list"]:
+        user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
+        group_ids = ", ".join(str(gid) for gid in context.bot_data.setdefault("group_ids", set()))
+        channel_ids = ", ".join(str(cid) for cid in context.bot_data.setdefault("channel_ids", set()))
+        text = (
+            f"@{context.bot.username} is currently in a conversation with the user IDs {user_ids}."
+            f" Moreover it is a member of the groups with IDs {group_ids} "
+            f"and administrator in the channels with IDs {channel_ids}."
+        )
+        await update.effective_message.reply_text(text)
+    else:
+        await update.effective_message.reply_text("This is only for admins")
 
 
 async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -141,17 +132,11 @@ async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     was_member, is_member = result
-    cause_name = update.chat_member.from_user.mention_html()
     member_name = update.chat_member.new_chat_member.user.mention_html()
 
     if not was_member and is_member:
         await update.effective_chat.send_message(
-            f"{member_name} was added by {cause_name}. Welcome!",
-            parse_mode=ParseMode.HTML,
-        )
-    elif was_member and not is_member:
-        await update.effective_chat.send_message(
-            f"{member_name} is no longer with us. Thanks a lot, {cause_name} ...",
+            f"ようこそ {member_name}さん！",
             parse_mode=ParseMode.HTML,
         )
 
