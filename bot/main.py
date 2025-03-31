@@ -130,8 +130,9 @@ async def show_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Looks up a word in a jp-ru dictionary"""
     word = update.message.text
-    logger.info("Looking up the word {word}")
+    logger.info(f"Looking up the word {word}")
     text = bot.lookup.lookup(word)
+    logger.info(f"Got result {text}")
     if text:
         await update.effective_message.reply_text(text)
 
