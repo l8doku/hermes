@@ -40,10 +40,10 @@ def extract_entry_info(entry):
             )
         else:
             tmp.append("\n".join(tmp2))
-
+    entries_together = "\n".join(tmp)
     final_text = f"""{full_entry_kanji}
 {full_entry_kana}
-{"\n".join(tmp)}
+{entries_together}
 
 """
     if not found_rus:
