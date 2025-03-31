@@ -131,7 +131,8 @@ async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     """Looks up a word in a jp-ru dictionary"""
 
     text = bot.lookup.lookup(update.message.text)
-    await update.effective_message.reply_text(text)
+    if text:
+        await update.effective_message.reply_text(text)
 
 
 async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
