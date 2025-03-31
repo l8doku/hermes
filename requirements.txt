@@ -1,2 +1,5 @@
 python-telegram-bot==22.0
 python-dotenv==1.1.0
+jamdict==0.1a11.post2
+jamdict-data==1.5
+lxml==5.3.1

@@ -1,5 +1,6 @@
 import logging
 from bot.config import load_config
+import bot.lookup
 from typing import Optional
 
 from telegram import Chat, ChatMember, ChatMemberUpdated, Update
@@ -125,6 +126,14 @@ async def show_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.effective_message.reply_text("This is only for admins")
 
 
+
+async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Looks up a word in a jp-ru dictionary"""
+
+    text = bot.lookup.lookup(update.message.text)
+    await update.effective_message.reply_text(text)
+
+
 async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Greets new users in chats and announces when someone leaves"""
     result = extract_status_change(update.chat_member)
@@ -155,7 +164,7 @@ async def start_private_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.bot_data.setdefault("user_ids", set()).add(chat.id)
 
     await update.effective_message.reply_text(
-        f"Welcome {user_name}. Use /show_chats to see what chats I'm in."
+        f"Welcome {user_name}."
     )
 
 
@@ -166,14 +175,16 @@ def main() -> None:
 
     # Keep track of which chats the bot is in
     application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.MY_CHAT_MEMBER))
-    application.add_handler(CommandHandler("show_chats", show_chats))
+    # application.add_handler(CommandHandler("show_chats", show_chats))
+
+    application.add_handler(CommandHandler("jisho", jp_ru_dict_lookup))
 
     # Handle members joining/leaving chats.
     application.add_handler(ChatMemberHandler(greet_chat_members, ChatMemberHandler.CHAT_MEMBER))
 
     # Interpret any other command or text message as a start of a private chat.
     # This will record the user as being in a private chat with bot.
-    application.add_handler(MessageHandler(filters.ALL, start_private_chat))
+    # application.add_handler(MessageHandler(filters.ALL, start_private_chat))
 
     # Run the bot until the user presses Ctrl-C
     # We pass 'allowed_updates' handle *all* updates including `chat_member` updates
