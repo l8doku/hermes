@@ -4,7 +4,8 @@ jam = Jamdict()
 
 
 def extract_entry_info(entry):
-
+    full_entry_kanji = ""
+    full_entry_kana = ""
     if not entry.senses:
         return None
     if entry.kanji_forms:
