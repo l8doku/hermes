@@ -62,5 +62,8 @@ def lookup(word):
     for word in result.entries:
         result = extract_entry_info(word)
         if result:
-            print(result)
+            return result
+        else:
+            return ""
 
+    return ""
