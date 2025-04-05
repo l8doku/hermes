@@ -65,6 +65,6 @@ def lookup(word):
         if result:
             return result
         else:
-            return ""
+            return f"Ничего не найдено по запросу {word}"
 
-    return ""
+    return f"Ничего не найдено по запросу {word}"

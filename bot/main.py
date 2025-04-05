@@ -3,7 +3,7 @@ from bot.config import load_config
 import bot.lookup
 from typing import Optional
 
-from telegram import Chat, ChatMember, ChatMemberUpdated, Update
+from telegram import Chat, ChatMember, ChatMemberUpdated, Update, MessageEntity
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -13,6 +13,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+import re
 
 
 # Load configuration
@@ -20,7 +21,9 @@ config = load_config()
 
 
 # Enable logging
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 # set higher logging level for httpx to avoid all GET and POST requests being logged
@@ -34,21 +37,22 @@ def welcome_new_member(update: Update, context):
         if new_member.id == context.bot.id:
             continue
 
-        welcome_msg = (
-            f"ようこそ {new_member.mention_markdown_v2()}さん！\n"
-        )
+        welcome_msg = f"ようこそ {new_member.mention_markdown_v2()}さん！\n"
 
         update.message.reply_text(welcome_msg, parse_mode="MarkdownV2")
 
 
-
-def extract_status_change(chat_member_update: ChatMemberUpdated) -> Optional[tuple[bool, bool]]:
+def extract_status_change(
+    chat_member_update: ChatMemberUpdated,
+) -> Optional[tuple[bool, bool]]:
     """Takes a ChatMemberUpdated instance and extracts whether the 'old_chat_member' was a member
     of the chat and whether the 'new_chat_member' is a member of the chat. Returns None, if
     the status didn't change.
     """
     status_change = chat_member_update.difference().get("status")
-    old_is_member, new_is_member = chat_member_update.difference().get("is_member", (None, None))
+    old_is_member, new_is_member = chat_member_update.difference().get(
+        "is_member", (None, None)
+    )
 
     if status_change is None:
         return None
@@ -106,27 +110,6 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         context.bot_data.setdefault("channel_ids", set()).discard(chat.id)
 
 
-
-async def show_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Shows which chats the bot is in"""
-
-    user_id = update.effective_user.id
-
-    if user_id in config["admin_list"]:
-        user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
-        group_ids = ", ".join(str(gid) for gid in context.bot_data.setdefault("group_ids", set()))
-        channel_ids = ", ".join(str(cid) for cid in context.bot_data.setdefault("channel_ids", set()))
-        text = (
-            f"@{context.bot.username} is currently in a conversation with the user IDs {user_ids}."
-            f" Moreover it is a member of the groups with IDs {group_ids} "
-            f"and administrator in the channels with IDs {channel_ids}."
-        )
-        await update.effective_message.reply_text(text)
-    else:
-        await update.effective_message.reply_text("This is only for admins")
-
-
-
 async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Looks up a word in a jp-ru dictionary"""
     word = update.message.text.replace("/jisho", "").strip()
@@ -135,9 +118,58 @@ async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     logger.info(f"Got result {text}")
     if text:
         await update.effective_message.reply_text(text)
+    else:
+        await update.effective_message.reply_text(f"Ничего не нашёл по запросу {word}")
 
 
-async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def extract_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    # Private chat: accept any message
+    if update.message.chat.type == "private":
+        text = update.message.text
+        return re.sub(r"^/jisho\s*", "", text).strip()
+
+    # Group chat: only process commands/mentions
+    if not (
+        update.message.entities
+        and any(
+            e.type == MessageEntity.BOT_COMMAND or e.type == MessageEntity.MENTION
+            for e in update.message.entities
+        )
+    ):
+        return None
+
+    # Handle replies in group chats
+    if update.message.reply_to_message:
+        # Check for text quotes (new Telegram feature)
+        if update.message.reply_to_message.text_quote:
+            return update.message.reply_to_message.text_quote.text.strip()
+        return update.message.reply_to_message.text.strip()
+
+    # Handle direct mentions/commands in group
+    text = update.message.text
+    text = re.sub(r"^/jisho\s*", "", text)  # Remove command
+    text = re.sub(
+        r"@" + context.bot.username + r"\s*", "", text, flags=re.IGNORECASE
+    )  # Remove mention
+    return text.strip()
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = extract_query(update, context)
+    if not query:
+        return
+
+    # Your dictionary lookup
+
+    logger.info(f"Looking up {query}")
+    result = bot.lookup.lookup(query)
+    logger.info(f"Got result {result}")
+    await update.message.reply_text(result)
+
+
+async def greet_chat_members(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Greets new users in chats and announces when someone leaves"""
     result = extract_status_change(update.chat_member)
     if result is None:
@@ -153,7 +185,9 @@ async def greet_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
 
-async def start_private_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start_private_chat(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Greets the user and records that they started a chat with the bot if it's a private chat.
     Since no `my_chat_member` update is issued when a user starts a private chat with the bot
     for the first time, we have to track it explicitly here.
@@ -166,34 +200,28 @@ async def start_private_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info("%s started a private chat with the bot", user_name)
     context.bot_data.setdefault("user_ids", set()).add(chat.id)
 
-    await update.effective_message.reply_text(
-        f"Welcome {user_name}."
-    )
+    await update.effective_message.reply_text(f"Welcome {user_name}.")
 
 
 def main() -> None:
     """Start the bot."""
-    # Create the Application and pass it your bot's token.
     application = Application.builder().token(config["token"]).build()
 
     # Keep track of which chats the bot is in
-    application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.MY_CHAT_MEMBER))
-    # application.add_handler(CommandHandler("show_chats", show_chats))
+    application.add_handler(
+        ChatMemberHandler(track_chats, ChatMemberHandler.MY_CHAT_MEMBER)
+    )
 
-    application.add_handler(CommandHandler("jisho", jp_ru_dict_lookup))
+    application.add_handler(CommandHandler("jisho", handle_message))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+    )
 
     # Handle members joining/leaving chats.
-    application.add_handler(ChatMemberHandler(greet_chat_members, ChatMemberHandler.CHAT_MEMBER))
-
-    # Interpret any other command or text message as a start of a private chat.
-    # This will record the user as being in a private chat with bot.
-    # application.add_handler(MessageHandler(filters.ALL, start_private_chat))
-
-    # Run the bot until the user presses Ctrl-C
-    # We pass 'allowed_updates' handle *all* updates including `chat_member` updates
-    # To reset this, simply pass `allowed_updates=[]`
+    application.add_handler(
+        ChatMemberHandler(greet_chat_members, ChatMemberHandler.CHAT_MEMBER)
+    )
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 
 if __name__ == "__main__":
