@@ -140,6 +140,7 @@ def extract_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
     # Handle replies in group chats
     if update.message.reply_to_message:
+        logger.info(f"I see a reply")
         # Check for text quotes (new Telegram feature)
         if update.message.quote:
             return update.message.quote.text.strip()
