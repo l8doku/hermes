@@ -141,8 +141,8 @@ def extract_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     # Handle replies in group chats
     if update.message.reply_to_message:
         # Check for text quotes (new Telegram feature)
-        if update.message.reply_to_message.text_quote:
-            return update.message.reply_to_message.text_quote.text.strip()
+        if update.message.quote:
+            return update.message.quote.text.strip()
         return update.message.reply_to_message.text.strip()
 
     # Handle direct mentions/commands in group
