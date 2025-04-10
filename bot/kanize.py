@@ -36,17 +36,12 @@ def applyMapping(string, mapping):
 
     def parse(tree, remaining, lastCursor, currentCursor):
         if not remaining:
-            if len(tree) == 1:
-                # nothing more to consume, just commit the last chunk and return it
-                # so as to not have an empty element at the end of the result
-                if tree[""]:
-                    return [[lastCursor, currentCursor, tree[""]]]
-                else:
-                    return []
-
-            # if we don't want to convert the ending, because there are still possible continuations
-            # return null as the final node value
-            return [[lastCursor, currentCursor, None]]
+            # nothing more to consume, just commit the last chunk and return it
+            # so as to not have an empty element at the end of the result
+            if tree[""]:
+                return [[lastCursor, currentCursor, tree[""]]]
+            else:
+                return []
 
         if len(tree) == 1:
             return [[lastCursor, currentCursor, tree[""]]] + newChunk(remaining, currentCursor)
