@@ -73,6 +73,9 @@ def lookup(word):
         if result:
             return result
     # no Russian results
+
+    # restart iterator
+    result = jam.lookup(word) 
     for entry in result.entries:
         result = extract_entry_info(entry, ru_only=False)
         if result:
