@@ -3,7 +3,7 @@ from jamdict import Jamdict
 jam = Jamdict()
 
 
-def extract_entry_info(entry):
+def extract_entry_info(entry, ru_only=True):
     full_entry_kanji = ""
     full_entry_kana = ""
     if not entry.senses:
@@ -16,15 +16,16 @@ def extract_entry_info(entry):
     if not entry.senses:
         return None
 
-    found_rus = False
+    found_rus = not ru_only
     idx = 0
     tmp = []
     for sense in entry.senses:
         if sense.gloss:
-            if sense.gloss[0].lang != "rus":
-                continue
-            else:
-                found_rus = True
+            if ru_only:
+                if sense.gloss[0].lang != "rus":
+                    continue
+                else:
+                    found_rus = True
 
         idx += 1
         tmp2 = []
@@ -42,15 +43,17 @@ def extract_entry_info(entry):
         else:
             tmp.append("\n".join(tmp2))
     entries_together = "\n".join(tmp)
-    final_text = f"""{full_entry_kanji}
-{full_entry_kana}
-{entries_together}
 
-"""
+    
+    final_text = (
+        f"{full_entry_kanji}"
+        f"{full_entry_kana}"
+        f"{entries_together}"
+    )
+
     if not found_rus:
         return None
     return final_text
-
 
 
 def lookup(word):
@@ -59,12 +62,20 @@ def lookup(word):
     # sentence = "太郎はこの本を女性に渡した。"
     # print(t.parse(sentence))
 
+    fail_message = f"Ничего не найдено по запросу {word}"
+
     result = jam.lookup(word)
-    for word in result.entries:
-        result = extract_entry_info(word)
+    if len(result.entries) == 0:
+        return fail_message
+
+    for entry in result.entries:
+        result = extract_entry_info(entry, ru_only=True)
         if result:
             return result
-        else:
-            return f"Ничего не найдено по запросу {word}"
+    # no Russian results
+    for entry in result.entries:
+        result = extract_entry_info(entry, ru_only=False)
+        if result:
+            return result
 
-    return f"Ничего не найдено по запросу {word}"
+    return fail_message

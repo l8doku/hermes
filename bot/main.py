@@ -1,6 +1,7 @@
 import logging
 from bot.config import load_config
 import bot.lookup
+import bot.kanize
 from typing import Optional
 
 from telegram import Chat, ChatMember, ChatMemberUpdated, Update, MessageEntity
@@ -110,16 +111,16 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         context.bot_data.setdefault("channel_ids", set()).discard(chat.id)
 
 
-async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Looks up a word in a jp-ru dictionary"""
-    word = update.message.text.replace("/jisho", "").strip()
-    logger.info(f"Looking up the word {word}")
-    text = bot.lookup.lookup(word)
-    logger.info(f"Got result {text}")
-    if text:
-        await update.effective_message.reply_text(text)
-    else:
-        await update.effective_message.reply_text(f"Ничего не нашёл по запросу {word}")
+# async def jp_ru_dict_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """Looks up a word in a jp-ru dictionary"""
+#     word = update.message.text.replace("/jisho", "").strip()
+#     logger.info(f"Looking up the word {word}")
+#     text = bot.lookup.lookup(word)
+#     logger.info(f"Got result {text}")
+#     if text:
+#         await update.effective_message.reply_text(text)
+#     else:
+#         await update.effective_message.reply_text(f"Ничего не нашёл по запросу {word}")
 
 
 def extract_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -155,15 +156,44 @@ def extract_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     return text.strip()
 
 
+def extract_quoted_query(query: str) -> tuple[str, bool]:
+    """
+    Returns:
+        - (extracted_query, was_quoted)  
+        If quoted, returns (text_inside_quotes, True).  
+        If not quoted, returns (original_text, False).  
+    """
+    stripped = query.strip()
+    if len(stripped) >= 2 and stripped[0] == '"' and stripped[-1] == '"':
+        # Remove quotes and return inner text
+        return stripped[1:-1], True
+    return query, False
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = extract_query(update, context)
-    if not query:
+    user_query = extract_query(update, context)
+    if not user_query:
         return
 
-    # Your dictionary lookup
+    logger.info(f"Found query - {user_query}")
+    logger.info(f"Checking for quotes")
+    clean_query, is_quoted = extract_quoted_query(user_query)
 
-    logger.info(f"Looking up {query}")
-    result = bot.lookup.lookup(query)
+    if not is_quoted:
+        logger.info("Not quoted, checking romaji")
+
+        kana = bot.kanize.toKana(clean_query)
+        if kana is not None:
+            logger.info(f"Found romaji, looking up {kana}")
+            lookup_query = kana
+        else:
+            logger.info(f"Couldn't parse romaji, looking up {clean_query}")
+            lookup_query = clean_query
+    else:
+        logger.info("Quoted input, skippng romaji check")
+        lookup_query = clean_query
+
+    result = bot.lookup.lookup(lookup_query)
     logger.info(f"Got result {result}")
     await update.message.reply_text(result)
 
