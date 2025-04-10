@@ -46,9 +46,9 @@ def extract_entry_info(entry, ru_only=True):
 
     
     final_text = (
-        f"{full_entry_kanji}"
-        f"{full_entry_kana}"
-        f"{entries_together}"
+        f"{full_entry_kanji}\n"
+        f"{full_entry_kana}\n"
+        f"{entries_together}\n"
     )
 
     if not found_rus:
