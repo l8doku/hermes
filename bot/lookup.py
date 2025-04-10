@@ -19,7 +19,7 @@ def extract_entry_info(entry, ru_only=True):
     found_rus = not ru_only
     idx = 0
     tmp = []
-    for sense in entry.senses:
+    for sense_index, sense in enumerate(entry.senses):
         if sense.gloss:
             if ru_only:
                 if sense.gloss[0].lang != "rus":
@@ -79,6 +79,10 @@ def lookup(word):
     for entry in result.entries:
         result = extract_entry_info(entry, ru_only=False)
         if result:
-            return result
+            final = (
+                "Не найдено результатов на русском языке. Найдены результаты на других языках:"
+                f"{result}"
+            )
+            return final
 
     return fail_message
