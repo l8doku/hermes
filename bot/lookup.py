@@ -80,7 +80,7 @@ def lookup(word):
         result = extract_entry_info(entry, ru_only=False)
         if result:
             final = (
-                "Не найдено результатов на русском языке. Найдены результаты на других языках:"
+                "Не найдено результатов на русском языке. Найдены результаты на других языках:\n\n"
                 f"{result}"
             )
             return final
